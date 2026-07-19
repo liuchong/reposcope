@@ -67,6 +67,13 @@ enum Command {
         /// Include the dark-theme <source> for the star-history chart.
         #[arg(long)]
         dark: bool,
+        /// Repository as owner/name — required with --branch (builds raw URLs).
+        #[arg(long)]
+        repo: Option<String>,
+        /// Publish branch: emit raw.githubusercontent.com URLs (branch mode)
+        /// instead of README-relative paths.
+        #[arg(long)]
+        branch: Option<String>,
     },
 }
 
@@ -97,24 +104,52 @@ pub async fn run() -> Result<()> {
             include_bots,
             token,
         } => contributors_cmd(&repo, &out, max, cols, avatar_size, include_bots, &token).await,
-        Command::Snippet { output_dir, dark } => {
-            print!("{}", snippet(&output_dir, dark));
+        Command::Snippet {
+            output_dir,
+            dark,
+            repo,
+            branch,
+        } => {
+            print!(
+                "{}",
+                snippet(&output_dir, dark, repo.as_deref(), branch.as_deref())?
+            );
             Ok(())
         }
     }
 }
 
 /// The paste-once README snippet (spec 00 §8). reposcope never writes README.
-fn snippet(output_dir: &str, dark: bool) -> String {
+fn snippet(
+    output_dir: &str,
+    dark: bool,
+    repo: Option<&str>,
+    branch: Option<&str>,
+) -> Result<String> {
     let dir = output_dir.trim_end_matches('/');
+    let base = match branch {
+        Some(b) => {
+            let repo = repo
+                .ok_or_else(|| ScopeError::Usage("--branch requires --repo owner/name".into()))?;
+            // Validate the repo part while we're at it.
+            resolve_repo(&Some(repo.to_string()))?;
+            format!(
+                "https://raw.githubusercontent.com/{repo}/{}/{dir}",
+                b.trim_matches('/')
+            )
+        }
+        None => dir.to_string(),
+    };
     let star = if dark {
         format!(
-            "<picture>\n  <source media=\"(prefers-color-scheme: dark)\" srcset=\"{dir}/star-history-dark.svg\">\n  <img alt=\"Star History\" src=\"{dir}/star-history.svg\">\n</picture>"
+            "<picture>\n  <source media=\"(prefers-color-scheme: dark)\" srcset=\"{base}/star-history-dark.svg\">\n  <img alt=\"Star History\" src=\"{base}/star-history.svg\">\n</picture>"
         )
     } else {
-        format!("![Star History]({dir}/star-history.svg)")
+        format!("![Star History]({base}/star-history.svg)")
     };
-    format!("{star}\n\n![Contributors]({dir}/contributors.svg)\n")
+    Ok(format!(
+        "{star}\n\n![Contributors]({base}/contributors.svg)\n"
+    ))
 }
 
 async fn contributors_cmd(
@@ -242,17 +277,32 @@ mod tests {
 
     #[test]
     fn snippet_variants() {
-        let s = snippet("assets/reposcope", true);
+        let s = snippet("assets/reposcope", true, None, None).unwrap();
         assert!(
             s.contains("<picture>")
                 && s.contains("star-history-dark.svg")
                 && s.contains("contributors.svg")
         );
-        let plain = snippet("assets/reposcope/", false);
+        let plain = snippet("assets/reposcope/", false, None, None).unwrap();
         assert!(
             !plain.contains("<picture>")
                 && plain.contains("![Star History](assets/reposcope/star-history.svg)")
         );
+    }
+
+    #[test]
+    fn snippet_branch_mode() {
+        let s = snippet(
+            "assets/reposcope",
+            true,
+            Some("owner/repo"),
+            Some("reposcope"),
+        )
+        .unwrap();
+        assert!(s.contains("https://raw.githubusercontent.com/owner/repo/reposcope/assets/reposcope/star-history.svg"));
+        // --branch without --repo is a usage error.
+        assert!(snippet("assets/reposcope", false, None, Some("reposcope")).is_err());
+        assert!(snippet("assets/reposcope", false, Some("bad"), Some("reposcope")).is_err());
     }
 
     #[test]

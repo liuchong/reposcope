@@ -23,6 +23,10 @@ inputs:
     description: "Directory for generated SVGs (only this dir is ever staged/committed)"
     required: false
     default: "assets/reposcope"
+  branch:
+    description: "Publish to this branch (orphan-style, e.g. 'reposcope') instead of the checked-out branch; reference assets via raw.githubusercontent.com/<repo>/<branch>/... URLs"
+    required: false
+    default: ""
   star_history:
     description: "Generate star-history.svg and star-history-dark.svg"
     required: false
@@ -44,7 +48,7 @@ inputs:
     required: false
     default: "chore(reposcope): update repo visuals [skip ci]"
   push:
-    description: "Push the commit to the current branch"
+    description: "Push the commit"
     required: false
     default: "true"
 
@@ -93,6 +97,34 @@ runs:
         tar xzf reposcope.tar.gz
         chmod +x reposcope
 
+    # Branch mode: clone (or orphan-init) the publish branch into RUNNER_TEMP;
+    # generation and commit happen there, never in the caller's workspace.
+    - name: Prepare publish directory
+      id: setup
+      shell: bash
+      env:
+        BRANCH: ${{ inputs.branch }}
+        REPO: ${{ inputs.repo }}
+        OUTPUT_DIR: ${{ inputs.output_dir }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      run: |
+        set -euo pipefail
+        if [ -z "$BRANCH" ]; then
+          echo "dir=$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        WORK="$RUNNER_TEMP/reposcope-publish"
+        rm -rf "$WORK"
+        url="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
+        if git ls-remote --exit-code --heads "$url" "refs/heads/$BRANCH" >/dev/null 2>&1; then
+          git clone -q --depth 1 --branch "$BRANCH" "$url" "$WORK"
+        else
+          git init -q -b "$BRANCH" "$WORK"
+          git -C "$WORK" remote add origin "$url"
+        fi
+        mkdir -p "$WORK/$OUTPUT_DIR"
+        echo "dir=$WORK" >> "$GITHUB_OUTPUT"
+
     - name: Generate star history (light + dark)
       if: inputs.star_history == 'true'
       shell: bash
@@ -101,7 +133,7 @@ runs:
       run: |
         "${{ runner.temp }}/reposcope-bin/reposcope" star-history \
           --repo "${{ inputs.repo }}" \
-          --out "${{ inputs.output_dir }}/star-history.svg" \
+          --out "${{ steps.setup.outputs.dir }}/${{ inputs.output_dir }}/star-history.svg" \
           --theme both
 
     - name: Generate contributors wall
@@ -112,7 +144,7 @@ runs:
       run: |
         "${{ runner.temp }}/reposcope-bin/reposcope" contributors \
           --repo "${{ inputs.repo }}" \
-          --out "${{ inputs.output_dir }}/contributors.svg" \
+          --out "${{ steps.setup.outputs.dir }}/${{ inputs.output_dir }}/contributors.svg" \
           --max "${{ inputs.max_contributors }}" \
           --cols "${{ inputs.cols }}"
 
@@ -120,10 +152,12 @@ runs:
     - name: Commit if changed
       id: commit
       shell: bash
+      working-directory: ${{ steps.setup.outputs.dir }}
       env:
         OUTPUT_DIR: ${{ inputs.output_dir }}
         COMMIT_MESSAGE: ${{ inputs.commit_message }}
         PUSH: ${{ inputs.push }}
+        BRANCH: ${{ inputs.branch }}
       run: |
         set -euo pipefail
         git add -A "$OUTPUT_DIR"
@@ -142,5 +176,9 @@ runs:
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "$COMMIT_MESSAGE"
         if [ "$PUSH" = "true" ]; then
-          git push
+          if [ -n "$BRANCH" ]; then
+            git push origin "$BRANCH"
+          else
+            git push
+          fi
         fi

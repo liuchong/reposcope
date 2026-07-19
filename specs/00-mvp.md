@@ -197,11 +197,24 @@ inputs:
   cols:           { default: "12" }
   commit_message: { default: "chore(reposcope): update repo visuals [skip ci]" }
   push:           { default: "true" }
+  branch:         { default: "" }              # see "Branch publishing" below
 
 outputs:
   changed:        # "true" when files were committed (from the commit step)
   files:          # newline-separated changed paths
 ```
+
+**Branch publishing.** When `branch` is set (e.g. `reposcope`), generated
+files are committed to that branch instead of the checked-out one — created
+as an orphan-style branch on first run (fresh root commit, unrelated
+history), so the main branch's commit history is never polluted by asset
+updates. Mechanism: a setup step clones the branch (or `git init -b` when it
+doesn't exist) into `$RUNNER_TEMP` using an `x-access-token` remote (token
+never logged); generation steps write into that directory; the commit step
+stages **only `output_dir`** and pushes to `branch`. The README then
+references the assets via stable `raw.githubusercontent.com/<repo>/<branch>/<path>`
+URLs, pasted once (§8). When `branch` is empty, behavior is the direct
+commit-if-changed on the checked-out branch.
 
 Steps: platform resolve (linux-x64 only) → `actions/cache@v4` on the binary
 dir (keyed by version) → download
@@ -225,7 +238,9 @@ git push
 
 ## 8. README snippet contract
 
-`reposcope snippet` prints (humans paste once; reposcope never writes it):
+`reposcope snippet` prints (humans paste once; reposcope never writes it).
+
+Direct mode (assets on the same branch as the README):
 
 ```html
 <picture>
@@ -234,6 +249,11 @@ git push
 </picture>
 <img alt="Contributors" src="assets/reposcope/contributors.svg">
 ```
+
+Branch mode (`--repo owner/name --branch reposcope`): absolute
+`https://raw.githubusercontent.com/<repo>/<branch>/<output_dir>/<file>` URLs,
+since relative paths cannot cross branches. Public repos only (raw URLs need
+no auth).
 
 Relative paths resolve from the README location; `output_dir` input keeps the
 two in sync.
