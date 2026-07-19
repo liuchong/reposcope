@@ -2,7 +2,7 @@
 
 [package]
 name = "reposcope"
-version = "0.1.1"
+version = "0.0.1"
 edition = "2024"
 rust-version = "1.85"
 description = "Render repo insight visuals (star history, contributors wall) as self-contained SVGs for your README. Built for GitHub Actions."
@@ -10,6 +10,7 @@ license-file = "LICENSE"
 repository = "https://github.com/liuchong/reposcope"
 keywords = ["github-actions", "svg", "star-history", "contributors", "readme"]
 categories = ["development-tools", "command-line-utilities"]
+exclude = [".github/", "specs/", "AGENTS.md", "action.yml"]
 
 [dependencies]
 anyhow = "1"

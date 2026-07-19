@@ -22,7 +22,7 @@ jobs:
   visuals:
     runs-on: ubuntu-latest
     steps:
-      - uses: liuchong/reposcope@v0.1.1
+      - uses: liuchong/reposcope@v0.0.1
         with:
           branch: reposcope
 ```
