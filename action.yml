@@ -1,4 +1,4 @@
-name: "RepoScope"
+name: "Repo Scope"
 description: "Render repo insight visuals (star history, contributors wall) as self-contained SVGs; commits only when data changed"
 author: "liuchong"
 
