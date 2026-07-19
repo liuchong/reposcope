@@ -1,0 +1,29 @@
+[workspace]
+
+[package]
+name = "reposcope"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Render repo insight visuals (star history, contributors wall) as self-contained SVGs for your README. Built for GitHub Actions."
+license-file = "LICENSE"
+repository = "https://github.com/liuchong/reposcope"
+keywords = ["github-actions", "svg", "star-history", "contributors", "readme"]
+categories = ["development-tools", "command-line-utilities"]
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["std", "alloc"] }
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+roxmltree = "0.20"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+httpmock = "0.8"
+tempfile = "3"

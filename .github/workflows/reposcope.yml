@@ -1,0 +1,22 @@
+name: RepoScope dogfood
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reposcope-${{ github.repository }}
+
+jobs:
+  visuals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+        with:
+          version: v0.1.0

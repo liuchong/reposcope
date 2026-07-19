@@ -1,0 +1,146 @@
+name: "RepoScope"
+description: "Render repo insight visuals (star history, contributors wall) as self-contained SVGs; commits only when data changed"
+author: "liuchong"
+
+branding:
+  icon: "bar-chart"
+  color: "blue"
+
+inputs:
+  version:
+    description: "reposcope release tag (e.g. v0.1.0); pinned, no floating tags"
+    required: false
+    default: "v0.1.0"
+  github_token:
+    description: "Token for GitHub API + git push (default GITHUB_TOKEN works: GraphQL-based, no PAT needed)"
+    required: false
+    default: ${{ github.token }}
+  repo:
+    description: "Repository to render, owner/name"
+    required: false
+    default: ${{ github.repository }}
+  output_dir:
+    description: "Directory for generated SVGs (only this dir is ever staged/committed)"
+    required: false
+    default: "assets/reposcope"
+  star_history:
+    description: "Generate star-history.svg and star-history-dark.svg"
+    required: false
+    default: "true"
+  contributors:
+    description: "Generate contributors.svg avatar wall"
+    required: false
+    default: "true"
+  max_contributors:
+    description: "Max contributors in the wall (API ceiling 500)"
+    required: false
+    default: "100"
+  cols:
+    description: "Wall grid columns"
+    required: false
+    default: "12"
+  commit_message:
+    description: "Commit message for generated-asset updates"
+    required: false
+    default: "chore(reposcope): update repo visuals [skip ci]"
+  push:
+    description: "Push the commit to the current branch"
+    required: false
+    default: "true"
+
+outputs:
+  changed:
+    description: "'true' if generated files changed and were committed"
+    value: ${{ steps.commit.outputs.changed }}
+  files:
+    description: "Newline-separated list of committed files"
+    value: ${{ steps.commit.outputs.files }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve platform
+      id: platform
+      shell: bash
+      run: |
+        case "${{ runner.os }}-${{ runner.arch }}" in
+          Linux-X64) target="x86_64-unknown-linux-musl" ;;
+          *) echo "::error::unsupported platform ${{ runner.os }}-${{ runner.arch }} (linux-x64 only for now)"; exit 1 ;;
+        esac
+        echo "target=$target" >> "$GITHUB_OUTPUT"
+
+    - name: Cache reposcope binary
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/reposcope-bin
+        key: reposcope-${{ inputs.version }}-${{ steps.platform.outputs.target }}
+
+    - name: Download reposcope
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        TARGET: ${{ steps.platform.outputs.target }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${{ runner.temp }}/reposcope-bin"
+        cd "${{ runner.temp }}/reposcope-bin"
+        base="https://github.com/liuchong/reposcope/releases/download/${VERSION}"
+        curl -fsSL "${base}/reposcope-${VERSION}-${TARGET}.tar.gz" -o reposcope.tar.gz
+        curl -fsSL "${base}/reposcope-${VERSION}-${TARGET}.tar.gz.sha256" -o reposcope.sha256
+        echo "$(cat reposcope.sha256)  reposcope.tar.gz" | sha256sum -c -
+        tar xzf reposcope.tar.gz
+        chmod +x reposcope
+
+    - name: Generate star history (light + dark)
+      if: inputs.star_history == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      run: |
+        "${{ runner.temp }}/reposcope-bin/reposcope" star-history \
+          --repo "${{ inputs.repo }}" \
+          --out "${{ inputs.output_dir }}/star-history.svg" \
+          --theme both
+
+    - name: Generate contributors wall
+      if: inputs.contributors == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      run: |
+        "${{ runner.temp }}/reposcope-bin/reposcope" contributors \
+          --repo "${{ inputs.repo }}" \
+          --out "${{ inputs.output_dir }}/contributors.svg" \
+          --max "${{ inputs.max_contributors }}" \
+          --cols "${{ inputs.cols }}"
+
+    # Only output_dir is ever staged (invariant: never touch hand-written files).
+    - name: Commit if changed
+      id: commit
+      shell: bash
+      env:
+        OUTPUT_DIR: ${{ inputs.output_dir }}
+        COMMIT_MESSAGE: ${{ inputs.commit_message }}
+        PUSH: ${{ inputs.push }}
+      run: |
+        set -euo pipefail
+        git add -A "$OUTPUT_DIR"
+        if git diff --cached --quiet; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "reposcope: no changes, nothing to commit"
+          exit 0
+        fi
+        echo "changed=true" >> "$GITHUB_OUTPUT"
+        {
+          echo "files<<__REPOSCOPE_EOF__"
+          git diff --cached --name-only
+          echo "__REPOSCOPE_EOF__"
+        } >> "$GITHUB_OUTPUT"
+        git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "$COMMIT_MESSAGE"
+        if [ "$PUSH" = "true" ]; then
+          git push
+        fi
