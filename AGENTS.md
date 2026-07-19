@@ -25,6 +25,16 @@ cargo test
 5. **Secrets**: never log or commit tokens. Token resolution:
    `--token` > `GITHUB_TOKEN` > `GH_TOKEN`.
 
+## Release checklist (order matters!)
+
+1. **Same commit**: bump `Cargo.toml` version AND `action.yml`'s
+   `version` default to the new tag (the tagged action.yml must default to
+   its own binary version — v0.1.1 shipped a default of v0.1.0 and silently
+   ran the old binary).
+2. Push, then tag `vX.Y.Z` (annotated), push the tag → release.yml builds.
+3. Verify release assets exist, then update consumer pins.
+4. Never use floating tags; consumers pin exact versions.
+
 ## Key facts
 
 - GitHub GraphQL-only for stargazers: the REST stargazers endpoint was
