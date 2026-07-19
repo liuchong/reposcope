@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)"/>
+
+  <!-- star-history curve rising toward the star -->
+  <path d="M30 90 L50 80 L63 85 L83 61" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="30" cy="90" r="4.5" fill="#ffffff"/>
+
+  <!-- sparkle star at the curve's end -->
+  <path d="M92 26 L95.5 42.5 L112 46 L95.5 49.5 L92 66 L88.5 49.5 L72 46 L88.5 42.5 Z" fill="#ffffff"/>
+  <!-- small companion sparkle -->
+  <path d="M110 76 L111.6 80.4 L116 82 L111.6 83.6 L110 88 L108.4 83.6 L104 82 L108.4 80.4 Z" fill="#ffffff" opacity="0.85"/>
+</svg>

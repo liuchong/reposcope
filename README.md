@@ -1,4 +1,7 @@
-# RepoScope
+<p align="center">
+  <img src=".github/assets/logo.svg" width="128" alt="reposcope logo" />
+</p>
+<h1 align="center">RepoScope</h1>
 
 Render repository insight visuals — **star history**, **contributors wall**, …
 — as self-contained SVG files your README references by path. Built to run in
