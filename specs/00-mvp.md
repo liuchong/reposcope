@@ -115,9 +115,14 @@ tokens, and by App installation tokens, on own and foreign repos).
 2. Filter: drop entries with `type == "Bot"` unless `--include-bots`.
 3. For each kept contributor: download `avatar_url` with `&s=<avatar-size>`
    appended, ≤ 8 concurrent. On download failure: fallback placeholder (gray
-   circle + first char of login, uppercased). Embed bytes as
-   `data:<content-type>;base64,...` (content-type from response header,
-   default `image/png`).
+   circle + first char of login, uppercased).
+4. **Pixel-normalize every avatar** (invariant 2): the avatars CDN re-encodes
+   images per edge node, so identical URLs return *different bytes* across
+   requests (observed 2026-07-19: gd-jpeg output drifted between runs,
+   causing daily no-op commits). Decode the image and re-encode it as PNG
+   with fixed encoder settings — identical pixels → identical bytes; a real
+   avatar change → different pixels → a real commit. Undecodable bytes also
+   fall back to the placeholder. Embed as `data:image/png;base64,...`.
 
 > Why base64-embedded: an SVG loaded via `<img>` (how GitHub renders README
 > images) cannot fetch external subresources. External `href`s would render
@@ -142,7 +147,9 @@ tokens, and by App installation tokens, on own and foreign repos).
    function of immutable star history; output bytes change **iff** the
    underlying data changed. (hosted charts using wall-clock `today` would shift
    the x-domain daily and cause empty-diff commits — explicitly rejected.)
-3. Contributor wall order = API order (contributions desc), stable.
+3. Contributor wall order = API order (contributions desc), stable. Avatar
+   fetches use ordered concurrency (`buffered`) and avatars are
+   pixel-normalized to PNG (§4.2) — CDN byte drift must not leak into output.
 4. Consequence: `git add` + `git diff --cached --quiet` is a correct
    change-detector; no separate state file is needed.
 

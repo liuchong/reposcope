@@ -31,6 +31,19 @@ async fn mock_contributors_page(server: &MockServer, page: u32, entries: Vec<ser
         .await;
 }
 
+/// Real 2x2 PNG bytes (normalize_png must be able to decode them).
+fn tiny_png() -> Vec<u8> {
+    use image::ImageEncoder as _;
+    let px: [u8; 16] = [
+        200, 100, 50, 255, 100, 200, 50, 255, 50, 100, 200, 255, 0, 0, 0, 255,
+    ];
+    let mut out = Vec::new();
+    image::codecs::png::PngEncoder::new(&mut out)
+        .write_image(&px, 2, 2, image::ExtendedColorType::Rgba8)
+        .unwrap();
+    out
+}
+
 async fn mock_avatar(server: &MockServer, login: &str, ok: bool) {
     server
         .mock_async(|when, then| {
@@ -38,7 +51,7 @@ async fn mock_avatar(server: &MockServer, login: &str, ok: bool) {
             if ok {
                 then.status(200)
                     .header("content-type", "image/png")
-                    .body(b"\x89PNG-fake-image-bytes".as_slice());
+                    .body(tiny_png());
             } else {
                 then.status(404).body("not found");
             }
