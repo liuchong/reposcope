@@ -22,8 +22,8 @@ Future (deferred, §12): more widgets, PNG output, xkcd theme, PR mode.
 - No README (or any hand-written file) mutation, ever (invariant 1).
 - No external rendering service / API dependency at view time. The SVG files
   are committed assets; GitHub camo serves them.
-- No contribution-type classification. The MVP
-  wall is contribution-count ordered avatars only.
+- No contribution-type emoji classification. The MVP wall is
+  contribution-count ordered avatars only.
 - No multi-repo comparison charts.
 
 ## 2. Architecture
@@ -77,7 +77,7 @@ on. The **GraphQL `stargazers` connection remains readable by any
 authenticated identity** — including the Actions `GITHUB_TOKEN` and App
 installation tokens — for any public repo (verified against repos with 0,
 3.7k, and 114k stars). GraphQL-only keeps one code path and needs no PAT
-setup, unlike REST-based tools.
+setup, unlike REST-based tools which now require a fine-grained PAT.
 
 1. `POST {base}/graphql` with query:
    ```
